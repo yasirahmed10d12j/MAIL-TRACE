@@ -1,0 +1,12 @@
+# Secrets — NEVER push these
+.env
+
+# Local data
+tracker.db
+
+# Binaries
+cloudflared.exe
+
+# Python
+__pycache__/
+*.pyc

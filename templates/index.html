@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MailTrace — Email Open & Location Tracker</title>
+<style>
+  :root { --bg:#0a0e14; --panel:#111722; --line:#1e2a3a; --cyan:#22d3ee; --green:#34d399; --red:#f87171; --text:#e6edf3; --muted:#8b98a9; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; }
+  .glow { position:fixed; inset:0; pointer-events:none; background:
+    radial-gradient(600px 300px at 80% -10%, rgba(34,211,238,.08), transparent),
+    radial-gradient(500px 300px at 10% 110%, rgba(52,211,153,.06), transparent); }
+  .wrap { max-width:900px; margin:0 auto; padding:60px 24px; position:relative; }
+  .badge { display:inline-block; padding:6px 14px; border:1px solid var(--line); border-radius:99px;
+    font:600 12px/1 monospace; color:var(--cyan); letter-spacing:2px; text-transform:uppercase;
+    background:rgba(34,211,238,.06); }
+  h1 { font-size:44px; margin:20px 0 14px; letter-spacing:-1px; }
+  h1 span { color:var(--cyan); }
+  p.lead { color:var(--muted); font-size:17px; line-height:1.7; max-width:620px; }
+  .btn { display:inline-flex; align-items:center; gap:8px; margin-top:28px; padding:14px 28px;
+    background:var(--cyan); color:#04121a; font-weight:700; font-size:15px; border:none;
+    border-radius:10px; cursor:pointer; text-decoration:none; transition:.2s; }
+  .btn:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(34,211,238,.35); }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:48px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:22px; }
+  .card .ico { font-size:22px; } .card h3 { font-size:15px; margin:10px 0 6px; }
+  .card p { color:var(--muted); font-size:13px; line-height:1.6; }
+  .how { margin-top:48px; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:26px; }
+  .how h2 { font-size:18px; margin-bottom:14px; }
+  .how code { background:#0a0e14; border:1px solid var(--line); border-radius:6px; padding:2px 7px;
+    font:13px monospace; color:var(--green); }
+  .how ol { margin-left:20px; color:var(--muted); line-height:2.1; font-size:14px; }
+  footer { margin-top:48px; color:#55637a; font-size:12px; line-height:1.8; border-top:1px solid var(--line); padding-top:20px; }
+  @media(max-width:640px){ .grid{grid-template-columns:1fr} h1{font-size:32px} }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="wrap">
+  <span class="badge">◉ Cybersecurity · OSINT · Portfolio Project</span>
+  <h1>Mail<span>Trace</span></h1>
+  <p class="lead">
+    Know <b>if</b> your email was opened, <b>when</b>, <b>where in the world</b>, and on <b>which device</b> —
+    the same tracking-pixel technology used by Mailtrack, Yesware and sales-intelligence tools.
+    Includes automated bot &amp; email-proxy detection (Gmail/Outlook proxy images through their own servers — MailTrace flags those opens so your data stays honest).
+  </p>
+  <a class="btn" href="/dashboard">Open Live Dashboard →</a>
+
+  <div class="grid">
+    <div class="card"><div class="ico">👁️</div><h3>Open Detection</h3><p>Invisible 1×1 pixel logs every time the recipient's mail client renders your email.</p></div>
+    <div class="card"><div class="ico">📍</div><h3>Location Intel</h3><p>IP address is geolocated to city, region and country, and pinned on a live world map.</p></div>
+    <div class="card"><div class="ico">🤖</div><h3>Bot &amp; Proxy Alerts</h3><p>Scanner user-agents and email-provider proxy IPs are flagged, so counts aren't inflated.</p></div>
+    <div class="card"><div class="ico">🖱️</div><h3>Link Click Tracking</h3><p>Every tracked link click is recorded alongside opens for a full engagement picture.</p></div>
+    <div class="card"><div class="ico">💻</div><h3>Device Fingerprint</h3><p>Operating system and mail client parsed from the User-Agent on every open.</p></div>
+    <div class="card"><div class="ico">🐍</div><h3>Python Core</h3><p>Flask + SQLite, zero paid APIs. Geolocation via free ip-api.com with caching.</p></div>
+  </div>
+
+  <div class="how">
+    <h2>How it works</h2>
+    <ol>
+      <li>Register an email in the dashboard → you get a unique tracking pixel <code>/pixel/&lt;id&gt;.gif</code></li>
+      <li>Embed the pixel in your email's HTML (or send directly via SMTP from the app)</li>
+      <li>When the email is opened, the pixel fetch is logged: timestamp, IP, location, device</li>
+      <li>Watch opens appear live on the dashboard map &amp; timeline</li>
+    </ol>
+  </div>
+
+  <footer>
+    Built as a cybersecurity portfolio project by Ahmed.<br>
+    ⚠️ Ethical use only: track only emails you send, and respect privacy laws (GDPR etc.).
+    Note: Gmail and Outlook proxy images through their own infrastructure — MailTrace detects and labels these as proxy opens.
+  </footer>
+</div>
+</body>
+</html>

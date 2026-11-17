@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MailTrace — Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root { --bg:#0a0e14; --panel:#111722; --panel2:#0d131d; --line:#1e2a3a; --cyan:#22d3ee;
+    --green:#34d399; --amber:#fbbf24; --red:#f87171; --text:#e6edf3; --muted:#8b98a9; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; }
+  header { display:flex; align-items:center; gap:14px; padding:16px 28px; border-bottom:1px solid var(--line);
+    background:rgba(13,19,29,.9); position:sticky; top:0; z-index:900; backdrop-filter:blur(8px); }
+  .logo { font:800 18px monospace; letter-spacing:1px; } .logo b { color:var(--cyan); }
+  header .spacer { flex:1; }
+  .tag { font:600 11px monospace; color:var(--green); border:1px solid var(--line); padding:5px 10px;
+    border-radius:99px; background:rgba(52,211,153,.06); }
+  a.home { color:var(--muted); font-size:13px; text-decoration:none; } a.home:hover { color:var(--cyan); }
+  .wrap { display:grid; grid-template-columns:360px 1fr; gap:18px; max-width:1400px; margin:0 auto; padding:22px; }
+  @media(max-width:960px){ .wrap{grid-template-columns:1fr} }
+
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+  .panel h2 { font:700 13px monospace; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted);
+    padding:14px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:8px; }
+  .panel h2 .dot { width:8px; height:8px; border-radius:99px; background:var(--green);
+    box-shadow:0 0 8px var(--green); animation:pulse 1.6s infinite; }
+  @keyframes pulse { 50% { opacity:.4 } }
+  .pad { padding:16px; }
+
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
+  @media(max-width:700px){ .stats{grid-template-columns:repeat(2,1fr)} }
+  .stat { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .stat .v { font:800 26px monospace; color:var(--cyan); } .stat .l { color:var(--muted); font-size:12px; margin-top:3px; }
+  .stat.g .v { color:var(--green); } .stat.a .v { color:var(--amber); }
+
+  label { display:block; font-size:12px; color:var(--muted); margin:12px 0 5px; font-weight:600; }
+  input, textarea { width:100%; background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+    color:var(--text); padding:10px 12px; font-size:14px; outline:none; transition:border .2s; }
+  input:focus, textarea:focus { border-color:var(--cyan); }
+  textarea { min-height:80px; resize:vertical; font-family:inherit; }
+  button { width:100%; margin-top:14px; padding:11px; border:none; border-radius:8px; font-weight:700;
+    font-size:14px; cursor:pointer; transition:.2s; }
+  .btn-main { background:var(--cyan); color:#04121a; } .btn-main:hover { box-shadow:0 6px 22px rgba(34,211,238,.3); }
+  .btn-ghost { background:transparent; color:var(--muted); border:1px solid var(--line) !important; font-weight:600; }
+  .btn-ghost:hover { color:var(--cyan); border-color:var(--cyan) !important; }
+  .result { margin-top:14px; font:12px monospace; line-height:1.9; word-break:break-all; }
+  .result .lbl { color:var(--muted); } .result .val { color:var(--green); user-select:all; cursor:pointer; }
+  .msg { margin-top:10px; font-size:13px; padding:9px 12px; border-radius:8px; display:none; }
+  .msg.ok { display:block; background:rgba(52,211,153,.1); color:var(--green); white-space:pre-line; }
+  .msg.warn { display:block; background:rgba(251,191,36,.1); color:var(--amber); white-space:pre-line; }
+  .msg.err { display:block; background:rgba(248,113,113,.1); color:var(--red); }
+
+  #map { height:340px; background:#0d131d; }
+  /* OSM tiles are light — invert them for the dark cyber look (markers live on
+     a separate SVG pane, so they keep their real colors) */
+  .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.95) contrast(.9) saturate(.7); }
+  .leaflet-control-attribution { display:none }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background:#111722; color:#e6edf3; border:1px solid var(--line); }
+  .leaflet-container { font-family:inherit; }
+
+  .email-list { max-height:520px; overflow-y:auto; }
+  .email-list::-webkit-scrollbar { width:6px } .email-list::-webkit-scrollbar-thumb { background:var(--line); border-radius:6px }
+  .email { border-bottom:1px solid var(--line); padding:13px 16px; cursor:pointer; transition:background .15s; }
+  .email:hover, .email.active { background:rgba(34,211,238,.05); }
+  .email .top { display:flex; align-items:center; gap:8px; }
+  .email .subj { font-weight:700; font-size:14px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .email .to { color:var(--muted); font-size:12px; margin-top:3px; font-family:monospace; }
+  .pill { font:600 10px monospace; padding:3px 8px; border-radius:99px; }
+  .pill.open { background:rgba(52,211,153,.12); color:var(--green); }
+  .pill.none { background:rgba(139,152,169,.12); color:var(--muted); }
+  .pill.multi { background:rgba(251,191,36,.12); color:var(--amber); }
+
+  .event { display:flex; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line); font-size:13px; }
+  .event .icon { font-size:16px; } .event .lines { flex:1; line-height:1.7; }
+  .event .when { color:var(--muted); font:11px monospace; }
+  .event .loc { font-weight:600; } .event .meta { color:var(--muted); font-size:12px; font-family:monospace; }
+  .bot { color:var(--red); font-weight:700; font-size:11px; }
+  .empty { color:var(--muted); text-align:center; padding:40px 16px; font-size:13px; line-height:1.8; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Mail<b>Trace</b></div>
+  <span class="tag">● LIVE</span>
+  <div class="spacer"></div>
+  <a class="home" href="/">← About this project</a>
+</header>
+
+<div class="wrap">
+  <div>
+    <div class="panel" style="margin-bottom:18px">
+      <h2>➕ Track a new email</h2>
+      <div class="pad">
+        <label>Recipient email</label>
+        <input id="rcpt" placeholder="person@company.com">
+        <label>Subject</label>
+        <input id="subj" placeholder="Partnership proposal">
+        <label>Message — normal likho (HTML bhi chalega)</label>
+        <textarea id="body" placeholder="Hi!&#10;&#10;Kya haal hai? Kal ki meeting ke baare me batao.&#10;&#10;Thanks"></textarea>
+        <button class="btn-main" onclick="track()">⚡ Generate tracking pixel</button>
+        <button class="btn-ghost" onclick="send()">✉ Send via SMTP (needs .env config)</button>
+        <div id="msg" class="msg"></div>
+        <div id="result" class="result" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:18px">
+      <h2>📥 Inbox me aane ke tips (spam se bachav)</h2>
+      <div class="pad" style="color:var(--muted);font-size:13px;line-height:2">
+        ✅ Pehli mail spam me jaye to dost <b style="color:var(--text)">"Not spam"</b> dabaye — agli baar inbox me aayegi<br>
+        ✅ Dost ko apne <b style="color:var(--text)">Google Contacts</b> me add karo (contacts me se aane wali mail kabhi spam nahi hoti)<br>
+        ✅ Ek waqt me <b style="color:var(--text)">ek hi mail</b> bhejo — 2-3 mails jaldi-jaldi bhejne se Gmail spam mark karta hai<br>
+        ✅ Subject me ALL CAPS aur zyada emoji/exclamation se bacho
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="dot"></span> Tracked emails
+        <span style="flex:1"></span>
+        <button class="btn-ghost" style="width:auto;padding:5px 12px;font-size:11px;margin:0" onclick="clearAll()">🗑 Clear all</button>
+      </h2>
+      <div class="email-list" id="list"></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="s-sent">0</div><div class="l">Emails tracked</div></div>
+      <div class="stat g"><div class="v" id="s-open">0</div><div class="l">Unique opens</div></div>
+      <div class="stat a"><div class="v" id="s-rate">0%</div><div class="l">Open rate</div></div>
+      <div class="stat"><div class="v" id="s-ev">0</div><div class="l">Total events</div></div>
+    </div>
+    <div class="panel" style="margin-bottom:18px">
+      <h2>🌍 Open locations</h2>
+      <div id="map"></div>
+    </div>
+    <div class="panel">
+      <h2>📜 Activity — <span id="selTitle" style="color:var(--cyan);text-transform:none;letter-spacing:0">select an email</span></h2>
+      <div id="events"><div class="empty">Select a tracked email on the left<br>to see its open history, locations and devices.</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let map = L.map('map', { attributionControl: false }).setView([25, 10], 2);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+let data = [], selected = null;
+
+async function load() {
+  const res = await fetch('/api/tracked');
+  data = (await res.json()).emails;
+  render();
+}
+
+function render() {
+  const opened = data.filter(e => e.unique_open).length;
+  const events = data.reduce((a, e) => a + e.opens + e.clicks, 0);
+  const rate = data.length ? Math.round(100 * opened / data.length) : 0;
+  document.getElementById('s-sent').textContent = data.length;
+  document.getElementById('s-open').textContent = opened;
+  document.getElementById('s-rate').textContent = rate + '%';
+  document.getElementById('s-ev').textContent = events;
+
+  const list = document.getElementById('list');
+  if (!data.length) {
+    list.innerHTML = '<div class="empty">No tracked emails yet.<br><button class="btn-ghost" style="width:auto;padding:10px 20px" onclick="seed()">Load demo data</button></div>';
+    return;
+  }
+  list.innerHTML = data.map(e => `
+    <div class="email ${selected === e.id ? 'active' : ''}" onclick="select('${e.id}')">
+      <div class="top">
+        <span class="subj">${esc(e.subject)}</span>
+        <span class="pill ${e.human_opens ? 'open' : e.proxy_opens ? 'multi' : 'none'}">
+          ${e.human_opens ? '✓ ' + e.human_opens + ' open' + (e.human_opens > 1 ? 's' : '')
+            : e.proxy_opens ? '✓ opened (Gmail proxy)'
+            : 'unopened'}</span>
+      </div>
+      <div class="to">${esc(e.recipient)} · ${new Date(e.created_at * 1000).toLocaleDateString()}</div>
+    </div>`).join('');
+  drawMap();
+  if (selected) showEvents(data.find(e => e.id === selected));
+}
+
+function drawMap() {
+  map.eachLayer(l => { if (l instanceof L.CircleMarker || l instanceof L.Popup) map.removeLayer(l); });
+  data.forEach(e => e.events.forEach(ev => {
+    if (ev.lat == null || ev.is_bot) return;  // proxy opens: Gmail's server location — plotting it would mislead
+    L.circleMarker([ev.lat, ev.lon], {
+      radius: ev.kind === 'click' ? 9 : 9,
+      color: ev.kind === 'click' ? '#fbbf24' : '#22d3ee',
+      fillColor: ev.kind === 'click' ? '#fbbf24' : '#22d3ee',
+      fillOpacity: .55, weight: 2
+    }).addTo(map).bindPopup(
+      `<b>${ev.kind === 'open' ? '👁 Open' : '🖱 Click'}</b><br>
+       ${esc(ev.city || 'Unknown')}, ${esc(ev.country || '')}<br>
+       <span style="color:#8b98a9">${new Date(ev.ts * 1000).toLocaleString()}<br>${esc(ev.device)} · ${esc(ev.browser)}</span>`);
+  }));
+}
+
+function select(id) {
+  selected = id;
+  const e = data.find(x => x.id === id);
+  document.getElementById('selTitle').textContent = `${e.subject} → ${e.recipient}`;
+  showEvents(e);
+  render();
+}
+
+function showEvents(e) {
+  const box = document.getElementById('events');
+  if (!e.events.length) {
+    box.innerHTML = '<div class="empty">No opens logged yet.<br>The pixel is live — check back after the recipient opens it.</div>';
+    return;
+  }
+  box.innerHTML = e.events.map(ev => {
+    if (ev.is_bot) {
+      return `
+      <div class="event" style="border-left:3px solid #f87171">
+        <div class="icon">🤖</div>
+        <div class="lines">
+          <div class="loc" style="color:#f87171">Opened via Gmail image proxy — open CONFIRMED ✓</div>
+          <div class="meta">Gmail ne image apne server (${esc(ev.ip || '')}) se fetch kiya — asli location &amp; device Gmail ke peeche chhupe hain. Ye sab trackers (Mailtrack, Yesware) ki bhi limitation hai.</div>
+        </div>
+        <div class="when">${new Date(ev.ts * 1000).toLocaleString()}</div>
+      </div>`;
+    }
+    return `
+      <div class="event">
+        <div class="icon">${ev.kind === 'open' ? '👁' : '🖱'}</div>
+        <div class="lines">
+          <div class="loc">${esc(ev.city || 'Unknown location')}${ev.country ? ', ' + esc(ev.country) : ''}</div>
+          <div class="meta">${esc(ev.ip || '')} · ${esc(ev.device)} · ${esc(ev.browser)}${ev.isp ? ' · ' + esc(ev.isp) : ''}</div>
+        </div>
+        <div class="when">${new Date(ev.ts * 1000).toLocaleString()}</div>
+      </div>`;
+  }).join('');
+}
+
+async function track() {
+  const res = await fetch('/api/tracked', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ recipient: rcpt.value, subject: subj.value || 'No subject' }) });
+  const out = await res.json();
+  const msg = document.getElementById('msg'), result = document.getElementById('result');
+  if (out.error) { msg.className = 'msg err'; msg.textContent = out.error; return; }
+  msg.className = 'msg ok';
+  msg.textContent = 'Tracking pixel created! Copy it into your email HTML.';
+  result.style.display = 'block';
+  result.innerHTML = `<div><span class="lbl">PIXEL:</span> <span class="val" onclick="navigator.clipboard.writeText(this.textContent)">${out.pixel_url}</span></div>
+    <div><span class="lbl">TRACKED LINK:</span> <span class="val" onclick="navigator.clipboard.writeText(this.textContent)">${out.link_url}</span></div>
+    <div><span class="lbl">HTML SNIPPET:</span> <span class="val" onclick="navigator.clipboard.writeText(this.textContent)">${esc(out.html_snippet)}</span></div>`;
+  await load(); select(out.id);
+}
+
+async function send() {
+  const res = await fetch('/api/send', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ recipient: rcpt.value, subject: subj.value, body: document.getElementById('body').value }) });
+  const out = await res.json();
+  const msg = document.getElementById('msg');
+  if (!out.sent) {
+    msg.className = 'msg err';
+    msg.textContent = out.message || out.error;
+    return;
+  }
+  await load(); select(out.id);
+  msg.className = 'msg ok';
+  let text = 'Sent! Agar dost ke inbox me na dikhe to uske SPAM folder me check karo — dost "Not spam" dabaye to agli baar inbox me aayega.';
+  if (out.warnings && out.warnings.length) {
+    text = '⚠ Deliverability warnings (agli baar spam na jaye to inhe theek karo):\n\n' + out.warnings.join('\n') + '\n\n' + text;
+  }
+  msg.textContent = text;
+}
+
+async function seed() {
+  await fetch('/api/seed', { method: 'POST' });
+  await load();
+}
+
+async function clearAll() {
+  if (!confirm('Sabhi tracked emails aur opens delete kar dein? Ye wapas nahi aayenge.')) return;
+  await fetch('/api/clear', { method: 'POST' });
+  selected = null;
+  document.getElementById('selTitle').textContent = 'select an email';
+  document.getElementById('events').innerHTML = '<div class="empty">Select a tracked email on the left<br>to see its open history, locations and devices.</div>';
+  await load();
+}
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+load();
+setInterval(load, 15000);   // auto-refresh every 15 s
+</script>
+</body>
+</html>
